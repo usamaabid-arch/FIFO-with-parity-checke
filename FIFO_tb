@@ -1,0 +1,140 @@
+//`timescale 1ns / 1ps
+
+module FIFO_tb();
+
+parameter DATAWIDTH=8, DEPTH = 8;
+
+reg clk, rst_n;
+reg valid_i, pop_grant_i;
+reg [7:0] data_i;
+
+wire grant_o, valid_o, parity_bit, parity_c;
+wire pop_valid_o;
+wire [7:0] pop_data_o, data_o;
+
+top_main #(DATAWIDTH,DEPTH) dut(
+ .clk(clk),
+ .rst_n(rst_n),
+ .grant_i(1'b1),
+ .valid_i(valid_i),
+ .pop_grant_i(pop_grant_i),
+ .data_i(data_i),
+ .grant_o(grant_o),
+ .pop_valid_o(pop_valid_o),
+ .pop_data_o(pop_data_o),
+  .data_o(data_o),.valid_o(valid_o),.parity_bit(parity_bit), .parity_c(parity_c)
+);
+
+always #5 clk = ~clk;  // 10ns clock
+
+initial begin
+    clk = 0;
+    rst_n = 0;
+    valid_i = 0;
+    pop_grant_i = 0;
+    data_i = 0;
+
+
+// Cycle 1–2 : RESET
+    #10 rst_n = 1;
+    rst_n = 1; valid_i = 0; pop_grant_i = 0; #10;
+  $display("---data through----");
+// RANDOM FILL FIFO 
+
+  repeat (7)begin
+    valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10; end
+
+//   $display("---data through manually---");
+  
+//     // Cycle 3
+//     valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+//     // Cycle 4
+//     valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+//     // Cycle 5
+//     valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+//     // Cycle 6
+//     valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+//     // Cycle 7
+//     valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+
+// EMPTY FIFO
+
+    // Cycle 8
+    valid_i = 0; pop_grant_i = 1; #10;
+
+    // Cycle 9
+    valid_i = 0; pop_grant_i = 1; #10;
+
+
+// MAX BANDWIDTH >>>push + pop
+    // Cycle 10
+    valid_i = 1; pop_grant_i = 1; data_i = $urandom; #10;
+
+    // Cycle 11
+    valid_i = 1; pop_grant_i = 1; data_i = $urandom; #10;
+
+
+// RECEIVER NOT READY
+  
+    // Cycle 12 stall
+  
+    valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+    // Cycle 13 
+    valid_i = 1; pop_grant_i = 0; data_i = $urandom; #10;
+
+
+//  POP 
+
+    // Cycle 14
+    valid_i = 0; pop_grant_i = 1; #10;
+
+    // Cycle 15
+    valid_i = 1; pop_grant_i = 1; data_i = $urandom; #10;
+
+
+
+    // Cycle 16 : push data
+    valid_i = 1; pop_grant_i = 1; data_i = $urandom; #10;
+  // Cycle 17
+   valid_i = 1; pop_grant_i = 1; data_i = 123; #5
+
+  
+//  PARITY ERROR INJECTION 
+  $display("---- Injecting Parity Error ----");// if Parity_c is 0 means even parity if bit is 1 means odd parity. Prity Gen set on even. 
+    // Force parity mismatch  
+ 
+    force dut.parity_bit = ~dut.parity_bit;   // break parity
+  
+  valid_i = 1; pop_grant_i = 1; data_i = 220; #5
+  valid_i = 1; pop_grant_i = 1; data_i = $urandom;
+    #10;
+    release dut.parity_bit;
+  $display("---- release parity Error ----");
+// Observe data loss
+
+    // Cycle 17
+    valid_i = 0; pop_grant_i = 1; #10;
+
+    // Cycle 18
+    valid_i = 0; pop_grant_i = 1; #10;
+
+
+    $finish;
+end
+
+initial begin
+    $monitor("T=%0t | rst=%b | push_v=%b | push_g=%b | pop_v=%b | pop_g=%b | data_i=%d | pop_data=%d data_o=%d | Parity=%b | Valid out=%b |  Parity checker =%b",
+             $time, rst_n, valid_i, grant_o,
+             pop_valid_o, pop_grant_i, data_i, pop_data_o, data_o, parity_bit, valid_o, parity_c);
+
+    $dumpfile("top_main.vcd");
+    $dumpvars(0, FIFO_tb);
+end
+
+endmodule
