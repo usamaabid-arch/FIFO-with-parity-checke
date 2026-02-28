@@ -1,0 +1,43 @@
+`include "FIFO.v"
+`include "parity_checker.sv"
+
+module top_main #(parameter DATAWIDTH=8, DEPTH=8)(
+input logic clk,
+input logic rst_n,
+input logic grant_i,
+input logic valid_i,
+input logic pop_grant_i,
+input logic [7:0] data_i,
+
+output logic grant_o,
+output logic pop_valid_o,
+output logic [7:0] pop_data_o,
+
+output logic valid_o,
+output logic [7:0] data_o,
+output logic parity_bit, parity_c
+);
+
+assign parity_bit = ^pop_data_o;
+
+FIFO #(DATAWIDTH,DEPTH) fifo_dut (
+.clk(clk),
+.rst_n(rst_n),
+.grant_i(grant_i),
+.valid_i(valid_i),
+.pop_grant_i(pop_grant_i),
+.data_i(data_i),
+.grant_o(grant_o),
+.pop_valid_o(pop_valid_o),
+.pop_data_o(pop_data_o)
+);
+
+parity_checker parity_dut(
+.pop_valid_o(pop_valid_o),
+.pop_data_o(pop_data_o),
+.parity_bit(parity_bit),
+.valid_o(valid_o),
+.data_o(data_o), .parity_c(parity_c)
+);
+
+endmodule
