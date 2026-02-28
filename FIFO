@@ -1,0 +1,47 @@
+module FIFO #(parameter DATAWIDTH=8, DEPTH=8)(
+    input clk,
+    input rst_n,
+    input grant_i,
+    input valid_i,
+    input pop_grant_i,
+    input [7:0] data_i,
+
+    output reg grant_o,
+    output reg pop_valid_o,
+    output reg [7:0] pop_data_o
+);
+
+reg [DATAWIDTH-1:0] mem [0:DEPTH-1];
+reg [2:0] wr_ptr, rd_ptr, count;
+
+always @(posedge clk or negedge rst_n) begin
+    if(!rst_n) begin
+        wr_ptr <= 0;
+        rd_ptr <= 0;
+        count  <= 0;
+        grant_o <= 1;
+        pop_valid_o <= 0;
+        pop_data_o <= 0;
+    end
+    else begin
+
+        grant_o     <= (count < DEPTH);
+        pop_valid_o <= (count > 0);
+
+        // PUSH
+        if(valid_i && grant_o) begin
+            mem[wr_ptr] <= data_i;
+            wr_ptr <= wr_ptr + 1;
+            count <= count + 1;
+        end
+
+        // POP
+        if(pop_valid_o && pop_grant_i) begin
+            pop_data_o <= mem[rd_ptr];
+            rd_ptr <= rd_ptr + 1;
+            count <= count - 1;
+        end
+    end
+end
+
+endmodule
